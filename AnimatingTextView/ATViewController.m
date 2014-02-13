@@ -28,7 +28,7 @@
 
 -(void)prepareForReuse {
     [super prepareForReuse];
-    self.fadeTextLabel.text = @"";
+    [self.fadeTextLabel prepareForReuse];
 }
 
 @end
@@ -59,10 +59,33 @@
     
     FadeLabelTableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"cell"];
     
-    NSString *textToDisplay = @"Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.";
-    cell.fadeTextLabel.text = textToDisplay;
-    [cell.fadeTextLabel animateTextFade:YES];
+    NSString *textToDisplay = @"Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor.";
+    
+    int randomint = arc4random_uniform(100000);
+    cell.fadeTextLabel.text = [NSString stringWithFormat:@"%@%d", textToDisplay, randomint];
+    cell.textLabel.text = [NSString stringWithFormat:@"%d", randomint];
     return cell;
+}
+
+-(void)tableView:(UITableView *)tableView willDisplayCell:(FadeLabelTableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)indexPath {
+
+//    static double prevCallTime = 0;
+//    static double prevCallOffset = 0;
+//    
+//    //Simple velocity calculation
+//    double curCallTime = CACurrentMediaTime();
+//    double timeDelta = curCallTime - prevCallTime;
+//    double curCallOffset = self.tableView.contentOffset.y;
+//    double offsetDelta = curCallOffset - prevCallOffset;
+//    double velocity = fabs(offsetDelta / timeDelta);
+//    prevCallTime = curCallTime;
+//    prevCallOffset = curCallOffset;
+
+//    if (ABS(velocity) > 1000 || velocity == 0) {
+//        [cell.fadeTextLabel showText:NO];
+//    } else {
+        [cell.fadeTextLabel showText:YES];
+//    }
 }
 
 - (void)didReceiveMemoryWarning

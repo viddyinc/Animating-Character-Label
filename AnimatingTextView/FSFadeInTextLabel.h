@@ -18,6 +18,9 @@
 @property (assign, nonatomic) int numberOfFadeInBuckets;
 @property (assign, nonatomic) float totalAnimationDuration;
 
--(void)animateTextFade:(BOOL)fadeIn;
+-(void)showText:(BOOL)fade;
+
+// To use inside a reusable cell (collectionview/tableview), call the following method
+-(void)prepareForReuse;
 
 @end
