@@ -16,6 +16,8 @@
 
 @property (assign, nonatomic) BOOL needsRelayout;
 @property (assign, nonatomic) BOOL needsToUpdateAnimationBuckets;
+
+@property (strong, nonatomic) UIImageView *imageview;
 @end
 
 @implementation FSFadeInTextLabel
@@ -124,42 +126,61 @@
         UIView *view = [[UIView alloc] initWithFrame:rect];
         view.clipsToBounds = YES;
         view.alpha = 0.0f;
-        
-        UIImageView *imageview = [[UIImageView alloc] initWithImage:self.renderedTextImage];
-        [view addSubview:imageview];
-        imageview.frame = CGRectMake(-CGRectGetMinX(rect), -CGRectGetMinY(rect), self.renderedTextImage.size.width, self.renderedTextImage.size.height);
-        [self addSubview:view];
-        
+
+        dispatch_sync(dispatch_get_main_queue(), ^{
+            UIImageView *imageview = [[UIImageView alloc] initWithImage:self.renderedTextImage];
+            [view addSubview:imageview];
+            imageview.frame = CGRectMake(-CGRectGetMinX(rect), -CGRectGetMinY(rect), self.renderedTextImage.size.width, self.renderedTextImage.size.height);
+        });
+
         NSUInteger r = arc4random_uniform((int)buckets.count);
         [buckets[r] addObject:view];
     }];
-    
+
     self.buckets = buckets;
 }
 
 -(void)animateTextFade:(BOOL)fadeIn {
     
-    if (self.needsRelayout) {
-        [self setupCharacterViews];
-    } else if (self.needsToUpdateAnimationBuckets) {
-        [self setupAnimationBuckets];
-    }
-    
-    // using total animation time, calculate each animation time.
-    CGFloat animationDuration = self.totalAnimationDuration/4;
-    CGFloat startWindow = self.totalAnimationDuration / (self.numberOfFadeInBuckets*2);
-    
-    for (int x = 0; x < self.buckets.count; x++) {
-        double delayInSeconds = x*startWindow; // x*0.1
-        dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delayInSeconds * NSEC_PER_SEC));
-        dispatch_after(popTime, dispatch_get_main_queue(), ^(void){
-            [UIView animateWithDuration:animationDuration animations:^{ // 0.35
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        if (self.needsRelayout) {
+            [self setupCharacterViews];
+        } else if (self.needsToUpdateAnimationBuckets) {
+            [self setupAnimationBuckets];
+        }
+        
+        // using total animation time, calculate each animation time.
+        CGFloat animationDuration = self.totalAnimationDuration/4;
+        CGFloat startWindow = self.totalAnimationDuration / (self.numberOfFadeInBuckets*2);
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            for (int x = 0; x < self.buckets.count; x++) {
                 for (UIView *view in self.buckets[x]) {
-                    view.alpha = fadeIn ? 1.0f : 0.0f;
+                    [self addSubview:view];
                 }
-            }];
+            }
+            
+            for (int x = 0; x < self.buckets.count; x++) {
+                double delayInSeconds = x*startWindow; // x*0.1
+                dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delayInSeconds * NSEC_PER_SEC));
+                dispatch_after(popTime, dispatch_get_main_queue(), ^(void){
+                    [UIView animateWithDuration:animationDuration animations:^{ // 0.35
+                        for (UIView *view in self.buckets[x]) {
+                            view.alpha = fadeIn ? 1.0f : 0.0f;
+                        }
+                    }];
+                });
+            }
         });
-    }
+        
+//        dispatch_async(dispatch_get_main_queue(), ^{
+//            if (!self.imageview) {
+//                self.imageview = [[UIImageView alloc] initWithFrame:self.bounds];
+//            }
+//            [self addSubview:self.imageview];
+//            self.imageview.image = self.renderedTextImage;
+//        });
+    });
 }
 
 @end

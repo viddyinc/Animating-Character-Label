@@ -28,6 +28,7 @@
 
 -(void)prepareForReuse {
     [super prepareForReuse];
+    self.fadeTextLabel.text = @"";
 }
 
 @end
