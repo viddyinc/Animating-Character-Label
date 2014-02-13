@@ -7,11 +7,19 @@
 //
 
 #import "ATAppDelegate.h"
+#import "ATViewController.h"
 
 @implementation ATAppDelegate
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
+    
+    self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
+    self.window.backgroundColor = [UIColor blackColor];
+    [self.window makeKeyAndVisible];
+    
+    self.window.rootViewController = [ATViewController new];
+
     // Override point for customization after application launch.
     return YES;
 }
