@@ -8,17 +8,23 @@
 
 #import "FSFadeInTextLabel.h"
 
+// can't cache once per character :( ligature and kerning causes same char to look different each time.
+#define USE_CHARACTER_CACHE 0
+
+#if USE_CHARACTER_CACHE
 static NSCache *characterCache;
+#endif
 
 @interface FSFadeInTextLabel ()
 @property (strong, nonatomic) UIView *textContainer;
-@property (assign, atomic) BOOL cancelOperation;
 @end
 
 @implementation FSFadeInTextLabel
 
 +(void)initialize {
+#if USE_CHARACTER_CACHE
     characterCache = [[NSCache alloc] init];
+#endif
 }
 
 - (id)initWithFrame:(CGRect)frame
@@ -30,8 +36,8 @@ static NSCache *characterCache;
         self.textContainer = [[UIView alloc] initWithFrame:self.bounds];
         [self addSubview:self.textContainer];
         
-        self.numberOfFadeInBuckets = 7;
-        self.totalAnimationDuration = 2.0f;
+        self.numberOfFadeInBuckets = 6;
+        self.totalAnimationDuration = 1.5f;
     }
     return self;
 }
@@ -48,12 +54,16 @@ static NSCache *characterCache;
 
 -(void)setFont:(UIFont *)font {
     _font = font;
+#if USE_CHARACTER_CACHE
     [characterCache removeAllObjects];
+#endif
 }
 
 -(void)setTextColor:(UIColor *)textColor {
     _textColor = textColor;
+#if USE_CHARACTER_CACHE
     [characterCache removeAllObjects];
+#endif
 }
 
 -(void)setTextAlignment:(NSTextAlignment)textAlignment {
@@ -73,19 +83,28 @@ static NSCache *characterCache;
 }
 
 -(NSArray *)createCharacterRectsForText:(UITextView *)tv {
-    NSMutableArray *rectOfCharacters = [NSMutableArray arrayWithCapacity:tv.text.length];
-    
-    UIImage *renderedTextImage = nil;;
+#if USE_CHARACTER_CACHE
+    UIImage *renderedTextImage = nil;
+#endif
 
-    int bucketSize = ceil(rectOfCharacters.count*1.0 / self.numberOfFadeInBuckets);
+    int bucketSize = ceil(tv.text.length*1.0 / self.numberOfFadeInBuckets);
     
     NSMutableArray *buckets = [NSMutableArray arrayWithCapacity:self.numberOfFadeInBuckets];
     for (int x = 0; x < self.numberOfFadeInBuckets; x++) {
         NSMutableArray *bucket = [NSMutableArray arrayWithCapacity:bucketSize];
         [buckets addObject:bucket];
     }
+    
+    unichar charbuffer[tv.text.length];
+    [tv.text getCharacters:charbuffer range:NSMakeRange(0, tv.text.length)];
+//    const char *chars = [tv.text UTF8String];
 
     for (int x = 0; x < tv.text.length; x++) {
+        unichar charAtIndex = charbuffer[x];
+        if ([[NSCharacterSet whitespaceAndNewlineCharacterSet] characterIsMember:charAtIndex]) {
+            continue;
+        }
+        
         UITextPosition *firstPos = [tv positionFromPosition:tv.beginningOfDocument offset:x];
         UITextPosition *nextPos = [tv positionFromPosition:tv.beginningOfDocument offset:x+1];
         
@@ -93,8 +112,9 @@ static NSCache *characterCache;
         CGRect result = [tv firstRectForRange:range];
         
         // for every character, check cache. render character image and cache image/size, and use that next time.
-        unichar character = [tv.text characterAtIndex:x];
-        NSDictionary *cachedd = [characterCache objectForKey:@(character)];
+        
+#if USE_CHARACTER_CACHE
+        NSDictionary *cachedd = [characterCache objectForKey:@(charAtIndex)];
         if (!cachedd) {
             
             if (renderedTextImage == nil) {
@@ -107,11 +127,15 @@ static NSCache *characterCache;
             CGRect rect = CGRectMake(result.origin.x * renderedTextImage.scale, result.origin.y * renderedTextImage.scale, result.size.width * renderedTextImage.scale, result.size.height * renderedTextImage.scale);
             CGImageRef imageRef = CGImageCreateWithImageInRect([renderedTextImage CGImage], rect);
             UIImage *characterImage = [UIImage imageWithCGImage:imageRef scale:renderedTextImage.scale orientation:renderedTextImage.imageOrientation];
-            [characterCache setObject:characterImage forKey:@(character)];
+            [characterCache setObject:characterImage forKey:@(charAtIndex)];
         }
         
         NSUInteger r = arc4random_uniform((int)buckets.count);
-        [buckets[r] addObject:@[@(character),[NSValue valueWithCGRect:result]]];
+        [buckets[r] addObject:@[@(charAtIndex),[NSValue valueWithCGRect:result]]];
+#else
+        NSUInteger r = arc4random_uniform((int)buckets.count);
+        [buckets[r] addObject:[NSValue valueWithCGRect:result]];
+#endif
     }
     
     return buckets;
@@ -146,23 +170,28 @@ static NSCache *characterCache;
                 return ;
             }
             
-            // using total animation time, calculate each animation time.
+            // using total animation time, calculate animation duration for animation buckets.
             CGFloat animationDuration = self.totalAnimationDuration/4;
             CGFloat startWindow = self.totalAnimationDuration / (self.numberOfFadeInBuckets*2);
             
-            __weak FSFadeInTextLabel *weakSelf = self;
+#if !USE_CHARACTER_CACHE
+            UIGraphicsBeginImageContextWithOptions(tv.bounds.size, NO, 0.0);
+            [tv.layer renderInContext:UIGraphicsGetCurrentContext()];
+            UIImage *renderedTextImage = UIGraphicsGetImageFromCurrentImageContext();
+            UIGraphicsEndImageContext();
+#endif
             
             for (int x = 0; x < animationBuckets.count; x++) {
                 double delayInSeconds = x*startWindow; // x*0.1
                 dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delayInSeconds * NSEC_PER_SEC));
                 dispatch_after(popTime, dispatch_get_main_queue(), ^(void) {
                     __strong __typeof(&*weakTextContainer)strongTextContainer = weakTextContainer;
-                    __strong __typeof(&*weakSelf)strongSelf = weakSelf;
                     
-                    if (strongTextContainer == nil || strongSelf == nil) {
-                        return ;
+                    if (strongTextContainer == nil) {
+                        return;
                     }
                     
+#if USE_CHARACTER_CACHE
                     for (NSArray *charAndRectValue in animationBuckets[x]) {
                         NSNumber *unicharNumber = charAndRectValue[0];
                         CGRect rect = [charAndRectValue[1] CGRectValue];
@@ -177,6 +206,23 @@ static NSCache *characterCache;
                             imageview.alpha = 1.0f;
                         }];
                     }
+#else
+                    for (NSValue *rectValue in animationBuckets[x]) {
+                        CGRect rect = [rectValue CGRectValue];
+                        UIView *view = [[UIView alloc] initWithFrame:rect];
+                        view.clipsToBounds = YES;
+                        view.alpha = 0.0f;
+                        
+                        UIImageView *imageview = [[UIImageView alloc] initWithImage:renderedTextImage];
+                        imageview.frame = CGRectMake(-CGRectGetMinX(rect), -CGRectGetMinY(rect), renderedTextImage.size.width, renderedTextImage.size.height);
+                        [view addSubview:imageview];
+                        [strongTextContainer addSubview:view];
+                        
+                        [UIView animateWithDuration:animationDuration animations:^{ // 0.35
+                            view.alpha = 1.0f;
+                        }];
+                    }
+#endif
                 });
             }
         });

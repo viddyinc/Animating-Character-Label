@@ -20,7 +20,7 @@
     if (self) {
         self.fadeTextLabel = [[FSFadeInTextLabel alloc] initWithFrame:CGRectMake(0, 0, CGRectGetWidth(self.bounds), CGRectGetWidth(self.bounds))];
         [self.contentView addSubview:self.fadeTextLabel];
-        self.fadeTextLabel.font = [UIFont fontWithName:@"HelveticaNeue-Light" size:15.0f];
+        self.fadeTextLabel.font = [UIFont fontWithName:@"GillSans-Light" size:20.0f];
         self.fadeTextLabel.textColor = [UIColor blackColor];
     }
     return self;
@@ -47,7 +47,6 @@
     
     self.tableView.rowHeight = 320;
     [self.tableView registerClass:[FadeLabelTableViewCell class] forCellReuseIdentifier:@"cell"];
-    
     self.view.backgroundColor = [UIColor blackColor];
 }
 
@@ -60,15 +59,13 @@
     FadeLabelTableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"cell"];
     
     NSString *textToDisplay = @"Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor.";
-    
-    int randomint = arc4random_uniform(100000);
-    cell.fadeTextLabel.text = [NSString stringWithFormat:@"%@%d", textToDisplay, randomint];
-    cell.textLabel.text = [NSString stringWithFormat:@"%d", randomint];
+    cell.fadeTextLabel.text = textToDisplay;
     return cell;
 }
 
 -(void)tableView:(UITableView *)tableView willDisplayCell:(FadeLabelTableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)indexPath {
 
+    // uncomment lines below to display none-fade in version of the text, for better scroll performance.
 //    static double prevCallTime = 0;
 //    static double prevCallOffset = 0;
 //    
